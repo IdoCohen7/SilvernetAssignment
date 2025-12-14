@@ -1,0 +1,6 @@
+@Silvernet_HostAddress = http://localhost:5078
+
+GET {{Silvernet_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
