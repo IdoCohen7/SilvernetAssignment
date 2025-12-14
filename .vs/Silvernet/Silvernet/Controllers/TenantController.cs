@@ -1,11 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Silvernet.DTOs;
 using Silvernet.Services;
+using System.Text;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace Silvernet.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class TenantController : ControllerBase
@@ -41,6 +44,45 @@ namespace Silvernet.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, "Interanl Server Error");
+            }
+        }
+
+        // GET api/<TenantController>/export/csv
+        [HttpGet("export/csv")]
+        public async Task<IActionResult> ExportToCsv()
+        {
+            try
+            {
+                var tenants = await _tenantService.GetAllTenants();
+
+                if (tenants == null || !tenants.Any())
+                {
+                    return NotFound("No tenants found to export.");
+                }
+
+                var csv = new StringBuilder();
+                
+                // csv headers 
+
+                csv.AppendLine("ID,Name,Email,Phone,CreationDate");
+
+                // fill rows
+
+                foreach (var tenant in tenants)
+                {
+                    csv.AppendLine($"{tenant.Id},\"{tenant.Name}\",\"{tenant.Email}\",\"{tenant.Phone}\",\"{tenant.CreationDate:yyyy-MM-dd HH:mm:ss}\"");
+                }
+
+                var bytes = Encoding.UTF8.GetBytes(csv.ToString());
+                
+                _logger.LogInformation("Exported {Count} tenants to CSV successfully.", tenants.Count());
+
+                return File(bytes, "text/csv", $"Tenants_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to export tenants to CSV");
+                return StatusCode(500, "Internal Server Error");
             }
         }
 

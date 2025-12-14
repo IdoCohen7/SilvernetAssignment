@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Silvernet.DTOs;
 using Silvernet.Services;
 
@@ -6,6 +7,7 @@ using Silvernet.Services;
 
 namespace Silvernet.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class UserController : ControllerBase
@@ -21,15 +23,33 @@ namespace Silvernet.Controllers
             _logger = logger;
 
         }
+        
         // GET: api/<UserController>
         [HttpGet]
-        public IEnumerable<string> Get()
+        public async Task<ActionResult<IEnumerable<UserDTO>>> Get()
         {
-            return new string[] { "value1", "value2" };
+            try
+            {
+                var users = await _userService.GetAllUsers();
+
+                if (users == null)
+                {
+                    return NotFound();
+                }
+
+                _logger.LogInformation("Fetched all users successfully!");
+                return Ok(users);
+            }
+
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Internal Server Error");
+            }
         }
 
-        [HttpGet("{tenantId}")]
-        public async Task<ActionResult<IEnumerable<UserDTO>>> GetByTenantId (long tenantId)
+        // GET api/<UserController>/tenant/5
+        [HttpGet("tenant/{tenantId}")]
+        public async Task<ActionResult<IEnumerable<UserDTO>>> GetByTenantId(long tenantId)
         {
             try
             {
@@ -37,7 +57,7 @@ namespace Silvernet.Controllers
 
                 if (users == null)
                 {
-                    return NotFound($"no users for tenant: {tenantId} ");
+                    return NotFound($"No users for tenant: {tenantId}");
                 }
 
                 return Ok(users);
@@ -51,27 +71,101 @@ namespace Silvernet.Controllers
 
         // GET api/<UserController>/5
         [HttpGet("{id}")]
-        public string Get(int id)
+        public async Task<ActionResult<UserDTO>> Get(long id)
         {
-            return "value";
+            try
+            {
+                var user = await _userService.GetUserByIdAsync(id);
+                if (user == null)
+                {
+                    return NotFound($"User with ID {id} not found");
+                }
+
+                return Ok(user);
+            }
+
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Server Error");
+            }
         }
 
         // POST api/<UserController>
         [HttpPost]
-        public void Post([FromBody] string value)
+        public async Task<ActionResult<UserDTO>> Post([FromBody] UserCreateDTO userDTO)
         {
+            _logger.LogInformation("Attempting to create user with email: {Email}", userDTO.Email);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var newUser = await _userService.CreateUserAsync(userDTO);
+                _logger.LogInformation("User {Id} created successfully.", newUser.Id);
+
+                return CreatedAtAction(nameof(Get), new { id = newUser.Id }, newUser);
+
+            }
+
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Server Error");
+            }
         }
 
         // PUT api/<UserController>/5
         [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        public async Task<IActionResult> Put(long id, [FromBody] UserUpdateDTO userDTO)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                bool status = await _userService.UpdateUserAsync(id, userDTO);
+
+                if (!status)
+                {
+                    _logger.LogWarning("Attempt to update non-existing user ID: {Id}", id);
+                    return NotFound($"User with ID {id} not found.");
+                }
+                
+                _logger.LogInformation("User {Id} updated successfully.", id);
+                return NoContent();
+            }
+
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Internal Server Error");
+            }
         }
 
         // DELETE api/<UserController>/5
         [HttpDelete("{id}")]
-        public void Delete(int id)
+        public async Task<IActionResult> Delete(long id)
         {
+            try
+            {
+                bool success = await _userService.DeleteUserAsync(id);
+
+                if (!success)
+                {
+                    _logger.LogWarning("Attempt to delete non-existing user ID: {Id}", id);
+                    return NotFound($"User with ID {id} not found.");
+                }
+
+                _logger.LogInformation("User {Id} deleted successfully.", id);
+                return NoContent();
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Internal Server Error");
+            }
         }
     }
 }

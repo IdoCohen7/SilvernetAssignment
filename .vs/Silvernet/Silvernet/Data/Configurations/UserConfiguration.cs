@@ -13,7 +13,7 @@ namespace Silvernet.Data.Configurations
             builder.HasKey(u => u.Id);
 
             builder.Property(u => u.Id)
-                   .ValueGeneratedOnAdd();
+                   .ValueGeneratedNever(); // ID must be provided by the user
 
             builder.Property(u => u.FirstName)
                    .IsRequired()

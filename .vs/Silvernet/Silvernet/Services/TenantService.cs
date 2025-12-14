@@ -81,6 +81,7 @@ namespace Silvernet.Services
         {
             var newTenant = new Tenant
             {
+                Id = tenenatDTO.Id, // User-provided Israeli ID
                 Name = tenenatDTO.Name,
                 Email = tenenatDTO.Email,
                 Phone = tenenatDTO.Phone,
